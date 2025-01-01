@@ -2,17 +2,20 @@ globals [
   ; general
   n ; how many turtles are there?
   ; opinion
-  max-opinion ; what is the max opinion a turtle can have?
   binary-opinions? ; are opinions binary or continuous?
   ; colors
   negative-color ; what color are negative opinions?
   white-neutral? ; is white or black the neutral color?
   positive-color ; what color are positive opinions?
   background-color ; what color is the background?
+  ; interactions
+  interaction-distance ; how close do turtle's have to be to interact?
 ]
 
 turtles-own [
   opinion ; what is the turtle's current opinion?
+  sociability ; how likely is this turtle to interact with other turtles?
+  stubbornness ; how resistant to change is this turtle?
 ]
 
 to setup
@@ -23,9 +26,9 @@ to setup
   ; control variables
   set n 300
   set binary-opinions? false
+  set interaction-distance 3.5
 
   ; internal variables
-  set max-opinion 1
   set negative-color blue
   set white-neutral? true
   set positive-color red
@@ -40,17 +43,21 @@ to setup
   create-turtles n [
     setxy random-xcor random-ycor
 
-    set opinion max-opinion * (2 * random 2 - 1) ; set opinion to +/- max-opinion
+    set opinion 2 * (random 2) - 1 ; sets opinion to -1 or 1
     if not binary-opinions?
-    [set opinion opinion * random-float 1] ; set opinion to float between +/- max-opinion
+    [set opinion opinion * random-float 1] ; set opinion to float (-1, 1)
 
     update-color
+
+    set sociability random-float 1 ; set sociability to float [0, 1)
+
+    set stubbornness 1 + random-float -1 ; set stubbornness to float (0, 1]
   ]
 end
 
 to update-color
   let base-color negative-color
-  let bound-1 -2 * max-opinion
+  let bound-1 -2
   let bound-2 0
 
   if opinion > 0 [
@@ -65,6 +72,45 @@ to update-color
   ]
 
   set color scale-color base-color opinion bound-1 bound-2
+end
+
+to go
+  ask turtles [
+    let listeners other turtles with [distance myself <= interaction-distance]
+
+    let my-opinion opinion
+    ask listeners [
+      if random-float 1 < sociability [
+        let listener-opinion opinion
+
+        ask myself [interact myself listener-opinion] ; speaker interacts with listener
+        interact myself my-opinion ; listener interacts with speaker
+      ]
+    ]
+  ]
+
+  tick
+end
+
+to interact [other-turtle other-opinion]
+  update-opinion other-opinion
+  update-color
+end
+
+to update-opinion [other-opinion]
+  if opinion != other-opinion and random-float 1 > stubbornness [
+    ifelse binary-opinions?
+    [set opinion other-opinion]
+    [
+      let opinion-difference other-opinion - opinion
+
+      let polarization-factor (1 - abs(opinion)) * (1 - abs(opinion-difference / 2)) ; polarization factor is stronger at extremes and with larger opinion differences
+
+      let opinion-change opinion-difference * polarization-factor * (1 - stubbornness)
+
+      set opinion opinion + opinion-change
+    ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -93,6 +139,57 @@ GRAPHICS-WINDOW
 1
 ticks
 30.0
+
+BUTTON
+36
+37
+99
+70
+NIL
+setup\n
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+37
+90
+100
+123
+NIL
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+119
+90
+182
+123
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
