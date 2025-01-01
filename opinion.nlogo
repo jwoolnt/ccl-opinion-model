@@ -9,12 +9,13 @@ globals [
   positive-color ; what color are positive opinions?
   background-color ; what color is the background?
   ; interactions
-  interaction-distance ; how close do turtle's have to be to interact?
+  interaction-distance ; how close do turtles have to be to interact?
+  move-distance ; how far can turtles move?
 ]
 
 turtles-own [
   opinion ; what is the turtle's current opinion?
-  sociability ; how likely is this turtle to interact with other turtles?
+  sociability ; how social is this turtle?
   stubbornness ; how resistant to change is this turtle?
 ]
 
@@ -26,7 +27,8 @@ to setup
   ; control variables
   set n 300
   set binary-opinions? false
-  set interaction-distance 3.5
+  set interaction-distance 5
+  set move-distance 0.1
 
   ; internal variables
   set negative-color blue
@@ -78,13 +80,15 @@ to go
   ask turtles [
     let listeners other turtles with [distance myself <= interaction-distance]
 
-    let my-opinion opinion
+    let speaker self
+    let speaker-opinion opinion
     ask listeners [
-      if random-float 1 < sociability [
-        let listener-opinion opinion
+      let listener self
+      let listener-opinion opinion
 
-        ask myself [interact myself listener-opinion] ; speaker interacts with listener
-        interact myself my-opinion ; listener interacts with speaker
+      if random-float [closeness listener] of speaker <= sociability [
+        ask speaker [interact listener listener-opinion]
+        ask listener [interact speaker speaker-opinion]
       ]
     ]
   ]
@@ -92,25 +96,47 @@ to go
   tick
 end
 
+to-report closeness [other-turtle]
+  report distance other-turtle / interaction-distance
+end
+
 to interact [other-turtle other-opinion]
-  update-opinion other-opinion
+  update-opinion other-turtle other-opinion
+  move other-turtle
   update-color
 end
 
-to update-opinion [other-opinion]
+to update-opinion [other-turtle other-opinion]
   if opinion != other-opinion and random-float 1 > stubbornness [
     ifelse binary-opinions?
     [set opinion other-opinion]
     [
       let opinion-difference other-opinion - opinion
 
-      let polarization-factor (1 - abs(opinion)) * (1 - abs(opinion-difference / 2)) ; polarization factor is stronger at extremes and with larger opinion differences
+      let polarization-factor (1 - abs(opinion)) * (1 - abs(opinion-difference / 2)) ^ 2 ; polarization factor is stronger at extremes and with larger opinion differences
 
-      let opinion-change opinion-difference * polarization-factor * (1 - stubbornness)
+      let opinion-change opinion-difference * polarization-factor * (1 - closeness other-turtle) * (1 - stubbornness) ; actual change in opinion affected by polarization, closeness, and stubbornness
 
       set opinion opinion + opinion-change
     ]
   ]
+end
+
+to move [other-turtle]
+  set heading towards other-turtle
+  ifelse not agree other-turtle
+  [right 180]
+  [
+    if closeness other-turtle > sociability
+    [forward move-distance * random-float sociability]
+  ]
+
+  right random 361
+  forward move-distance * random-float sociability
+end
+
+to-report agree [other-turtle]
+  report opinion * [opinion] of other-turtle > 0
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
